@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ReserveProof — Proof of Reserves Checked On-chain</title>
+<style>
+  :root{
+    --bg:#07171a; --bg2:#0b2024; --card:#0e272c; --line:#15434c;
+    --ink:#e6fbf6; --dim:#7fb3ad; --acc:#2ee6b1; --acc2:#ffc247;
+    --bad:#ff6b6b; --good:#2ee6b1; --warn:#ffc247;
+    --mono:ui-monospace,"Cascadia Code",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+     radial-gradient(1100px 520px at 12% -12%, #0f3a3f 0%, transparent 62%),
+     radial-gradient(900px 480px at 92% 0%, #2a2412 0%, transparent 58%),
+     var(--bg);
+     color:var(--ink);font:15px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+     min-height:100vh}
+  header{display:flex;align-items:center;gap:14px;padding:18px 26px;
+    border-bottom:1px solid var(--line);background:rgba(7,23,26,.82);
+    backdrop-filter:blur(9px);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+  .logo{width:34px;height:34px;border-radius:10px;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--acc),#0f7a63 60%,var(--acc2));
+    box-shadow:0 0 0 1px #1d5f57 inset,0 6px 18px -6px var(--acc)}
+  h1{font-size:17px;margin:0;letter-spacing:.2px;font-weight:650}
+  .sub{font-size:11.5px;color:var(--dim);letter-spacing:.06em}
+  .spacer{flex:1}
+  #netDot{width:8px;height:8px;border-radius:50%;background:#3c5c59;display:inline-block;
+    margin-right:7px;vertical-align:middle}
+  #netDot.on{background:var(--acc);box-shadow:0 0 9px var(--acc)}
+  button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);
+    background:#123239;color:var(--ink);padding:9px 15px;transition:.15s}
+  button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:linear-gradient(180deg,#1a5a4e,#0f3d36);
+    border-color:#217a67;font-weight:600}
+  button.primary:hover:not(:disabled){border-color:var(--acc);color:#d9fff4;
+    box-shadow:0 0 0 1px var(--acc) inset}
+  button.warn{border-color:#6b5217;color:var(--acc2)}
+  main{max-width:1180px;margin:0 auto;padding:26px 22px 80px}
+  .hero{padding:6px 0 22px}
+  .hero h2{margin:0 0 8px;font-size:26px;line-height:1.22;letter-spacing:-.3px}
+  .hero p{color:var(--dim);margin:0;max-width:820px}
+  .tag{display:inline-block;font:11px/1 var(--mono);letter-spacing:.1em;
+    color:var(--acc);border:1px solid #1b5148;background:#0c2b2c;
+    padding:6px 9px;border-radius:999px;margin-bottom:13px;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+  @media(max-width:940px){.grid{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--card),#0a2125);
+    border:1px solid var(--line);border-radius:15px;padding:17px 18px;margin-bottom:18px}
+  .card h3{margin:0 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--acc);font-weight:700}
+  .card h3 span{color:var(--dim);text-transform:none;letter-spacing:0;font-weight:400;
+    font-size:11.5px;margin-left:6px}
+  .card h4{margin:14px 0 3px;font-size:14px;font-weight:600}
+  .card h4:first-of-type{margin-top:8px}
+  .hint{font-size:12px;color:var(--dim);margin:0 0 10px}
+  label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--dim);margin:9px 0 4px}
+  input,textarea,select{width:100%;font:inherit;font-family:var(--mono);font-size:13px;
+    background:#081c20;color:var(--ink);border:1px solid var(--line);
+    border-radius:9px;padding:9px 11px}
+  input:focus,textarea:focus{outline:none;border-color:var(--acc);
+    box-shadow:0 0 0 3px #0c3b34}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .btnrow{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap}
+  .msg{font-size:12.5px;margin-top:10px;min-height:17px;font-family:var(--mono);
+    word-break:break-word;line-height:1.45}
+  .msg.err{color:var(--bad)} .msg.ok{color:var(--good)} .msg.info{color:var(--dim)}
+  #list{display:flex;flex-direction:column;gap:8px;max-height:430px;overflow:auto}
+  .item{display:flex;gap:11px;align-items:center;justify-content:space-between;
+    padding:10px 12px;border:1px solid var(--line);border-radius:11px;
+    background:#0a2327;cursor:pointer;transition:.14s}
+  .item:hover{border-color:var(--acc);background:#0d2c30}
+  .item.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .badge{font:10.5px/1 var(--mono);letter-spacing:.07em;padding:5px 8px;
+    border-radius:999px;white-space:nowrap;border:1px solid transparent}
+  .b0{background:#153d43;color:#8fd8cd;border-color:#1c5b5a}
+  .b1{background:#123a2c;color:#5ff2b6;border-color:#1c6b4c}
+  .b2{background:#3a1f22;color:#ff9b9b;border-color:#6d3238}
+  .b3{background:#3a331a;color:var(--acc2);border-color:#6b5a22}
+  .b4{background:#1b2f3a;color:#8ecbe6;border-color:#2a566b}
+  .b5{background:#33202f;color:#e5a2d4;border-color:#63324f}
+  .b6{background:#242a33;color:#a8bcc9;border-color:#3d4a57}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-family:var(--mono);
+    font-size:12.5px;margin-top:8px}
+  .kv b{color:var(--dim);font-weight:500;letter-spacing:.04em}
+  code{font-family:var(--mono);font-size:12.5px;background:#082126;
+    border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:var(--acc)}
+  ol{margin:8px 0 0;padding-left:20px;color:var(--dim);font-size:13px}
+  ol li{margin-bottom:7px}
+  ol b{color:var(--ink);font-weight:600}
+  footer{border-top:1px solid var(--line);padding:16px 26px;color:var(--dim);
+    font-size:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  a{color:var(--acc);text-decoration:none;border-bottom:1px dotted #1d6a5c}
+  a:hover{color:#9dffe4}
+  .warnbox{border-left:3px solid var(--acc2);background:#241f0d;padding:10px 13px;
+    border-radius:0 9px 9px 0;font-size:12.5px;color:#e8d9a8;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"></div>
+  <div>
+    <h1>ReserveProof</h1>
+    <div class="sub">PROOF OF RESERVES, CHECKED ON-CHAIN · STUDIONET</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="sub"><span id="netDot"></span><span id="netLabel">not connected</span></div>
+  <button id="connectBtn">Connect wallet</button>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="tag">build 13-01-reserveproof · chain 61999</div>
+    <h2>A custodian can claim any reserve ratio. This makes the claim checkable.</h2>
+    <p>
+      A custodian registers and posts a bond, then commits each reserve claim on chain: the
+      asset, the claimed reserve ratio in basis points, the URL of the auditor's page, a
+      digest of that page and a digest of the audit engagement. Only that custodian can
+      record a claim, so nobody can invent a number to attack. Anyone may then challenge a
+      claim by staking GEN and giving a reason. The challenger does not supply the evidence
+      URL &mdash; the jury re-reads the URL the custodian committed, so a challenger cannot
+      point it at a page of their own choosing. The jury extracts the ratio the auditor
+      states and whether the engagement matches, and deviation is measured against the
+      <em>attested</em> ratio, so an inflated claim always fails. Every validator
+      re-extracts and re-derives independently. If the page cannot be read, nothing is
+      slashed.
+    </p>
+  </section>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>Challenges <span id="countLabel">· loading…</span></h3>
+        <div id="list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Selected challenge</h3>
+        <div id="detail" class="hint">Pick a challenge above, or enter an id and press Open.</div>
+        <div class="row" style="margin-top:10px">
+          <div><label>Challenge id</label><input id="openId" value="1" inputmode="numeric" /></div>
+          <div style="display:flex;align-items:flex-end"><button id="openBtn">Open</button></div>
+        </div>
+        <div class="btnrow">
+          <button id="judgeBtn" class="primary" disabled>judge_challenge</button>
+          <button id="settleBtn" class="warn" disabled>settle_challenge</button>
+          <button id="reclaimBtn" class="warn" disabled>reclaim_stake</button>
+          <button id="refreshBtn">Refresh</button>
+        </div>
+        <div id="detailMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>Challenge a report <span>· the jury reads the custodian's own URL</span></h3>
+        <h4>Stake GEN behind the claim that the reserve ratio is not what the audit states</h4>
+        <p class="hint">Minimum 0.01 GEN, maximum 10 GEN. Your address is the challenger.</p>
+        <div class="row">
+          <div><label>Claim id</label><input id="cReport" value="1" inputmode="numeric" /></div>
+          <div><label>Requested bounty (GEN)</label><input id="cBounty" value="0.004" /></div>
+        </div>
+        <label>Stake (GEN)</label><input id="cStake" value="0.1" />
+        <label>Reason (24+ characters)</label>
+        <textarea id="cNote" rows="3">the attestation states a lower reserve ratio for this asset than the one claimed</textarea>
+        <div class="btnrow"><button id="challengeBtn" class="primary">challenge_report</button></div>
+        <div id="cMsg" class="msg"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Custodian</h3>
+        <label>Custodian id</label>
+        <input id="vId" value="anchorcustody" />
+        <div class="btnrow"><button id="vLoadBtn">Look up</button></div>
+        <div id="vInfo" class="kv"></div>
+        <div id="vMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>Register a custodian <span>· the caller becomes its operator</span></h3>
+        <div class="row">
+          <div><label>Custodian id</label><input id="rId" value="anchorcustody" /></div>
+          <div><label>Tolerance (bps)</label><input id="rTol" value="100" inputmode="numeric" /></div>
+        </div>
+        <p class="hint">Tolerance is how far the claimed ratio may sit from the source
+          before it counts as false. 100 bps = 1%. Capped at 2000.</p>
+        <div class="btnrow"><button id="regBtn" class="primary">register_custodian</button></div>
+        <div id="regMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>Fund the bond <span>· anyone can top it up</span></h3>
+        <div class="row">
+          <div><label>Custodian id</label><input id="fId" value="anchorcustody" /></div>
+          <div><label>Amount (GEN)</label><input id="fAmt" value="0.5" /></div>
+        </div>
+        <div class="btnrow"><button id="fundBtn" class="primary">fund_bond</button></div>
+        <div id="fMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>Record a report <span>· operator only · this is the commitment</span></h3>
+        <div class="row">
+          <div><label>Custodian id</label><input id="pCustodian" value="anchorcustody" /></div>
+          <div><label>Asset</label><input id="pPeriod" value="USDC" /></div>
+        </div>
+        <div class="row">
+          <div><label>Claimed ratio</label><input id="pApy" value="10500" inputmode="decimal" /></div>
+          <div><label>Audit digest</label><input id="pMdig" value="sha256:audit-77be0d31" /></div>
+        </div>
+        <label>Audit URL</label>
+        <input id="pUrl" value="https://audit.example.org/anchorcustody/usdc-reserves" />
+        <label>Page digest</label>
+        <input id="pSdig" value="sha256:page-2f9a1c7b77c1" />
+        <div class="btnrow"><button id="recBtn" class="primary">record_report</button></div>
+        <div id="pMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>Withdraw <span>· operator only · committed bounty is protected</span></h3>
+        <div class="row">
+          <div><label>Custodian id</label><input id="wId" value="anchorcustody" /></div>
+          <div><label>Amount (GEN)</label><input id="wAmt" value="0.1" /></div>
+        </div>
+        <label>Send to</label><input id="wTo" placeholder="0x… (defaults to you)" />
+        <div class="btnrow"><button id="wdBtn" class="warn">withdraw_bond</button></div>
+        <div id="wMsg" class="msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>How it works</h3>
+    <ol>
+      <li><b>register_custodian</b> — you become the operator and choose a tolerance in basis points.</li>
+      <li><b>fund_bond</b> — GEN is held by the contract, per custodian. Payouts only ever come from
+        the custodian whose report lost.</li>
+      <li><b>record_report</b> — operator only. Binds the asset, the claimed ratio, the
+        audit URL and both digests. There is no report, so there is nothing to challenge.</li>
+      <li><b>challenge_report</b> — stake GEN and give a reason. <b>The bounty is reserved out of
+        the custodian's bond the moment the challenge opens</b>, not when it is judged, so a bond can
+        only back as many open bounties as it can actually pay, and the operator cannot withdraw
+        that amount for the whole life of the challenge. The operator cannot challenge
+        themselves, and each report can be challenged exactly once.</li>
+      <li><b>judge_challenge</b> — the jury reads the committed URL, extracts the claimed ratio and
+        whether the page explains its method, and the contract derives the outcome with
+        <code>|stated − claimed| × 10000 ≤ tolerance × claimed</code>. Every validator re-reads the
+        page and re-derives independently; a leader whose echoed outcome disagrees with its own
+        numbers is rejected outright.</li>
+      <li><b>settle_challenge</b> — once. False: the reserved bounty is paid out with the
+        stake. Sound: the reservation is released and the stake is forfeited into the bond.
+        Inconclusive: the reservation is released and the stake returned, nothing slashed.</li>
+      <li><b>reclaim_stake</b> — the challenger always gets out: immediately when the bounty could
+        not be paid, or once a challenge has sat unjudged past the 7-day window.</li>
+    </ol>
+    <div class="warnbox">
+      Nothing in this contract trusts the challenger's word or the operator's. The only inputs that
+      reach the jury are the ones the operator committed on chain, and the outcome is derived
+      deterministically from the numbers the jury returns — the public view
+      <code>check_verdict</code> exposes that rule so it can be audited without running consensus.
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>ReserveProof · Studionet (61999)</span>
+  <a id="explorerLink" href="#" target="_blank" rel="noopener">contract on the explorer</a>
+  <a href="https://github.com/setulamina/reserveproof" target="_blank" rel="noopener">source</a>
+  <span id="addrLabel"></span>
+</footer>
+
+<script type="module">
+import { createClient } from "https://esm.sh/genlayer-js@1.1.8";
+import { studionet } from "https://esm.sh/genlayer-js@1.1.8/chains";
+
+// ------------------------------------------------------------------------ config
+const ADDR = "0xc244838A87a03DAcEA765B0dCFd093ae7B422347";
+const EXPLORER = "https://explorer-studio.genlayer.com/address/" + ADDR;
+const CSTATE = ["OPEN", "SOUND", "UNSOUND", "INCONCLUSIVE", "SETTLED", "UNFUNDED", "RELEASED"];
+const $ = (id) => document.getElementById(id);
+const readClient = createClient({ chain: studionet });
+let usingLocalKey = false;
+let writeClient = null, myAddr = null, selected = null, challenges = [];
+
+// ------------------------------------------------------------------------ helpers
+const short = (a) => (a ? a.slice(0, 8) + "…" + a.slice(-6) : "—");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const eth = (wei) => {
+  const v = BigInt(wei ?? 0);
+  const whole = v / 10n ** 18n, frac = (v % 10n ** 18n).toString().padStart(18, "0");
+  const trimmed = frac.replace(/0+$/, "");
+  return trimmed ? `${whole}.${trimmed.slice(0, 6)}` : `${whole}`;
+};
+const gen = (g) => {
+  const s = String(g ?? "").trim();
+  if (!s) return 0n;
+  const [w, f = ""] = s.split(".");
+  if (!/^\d*$/.test(w) || !/^\d*$/.test(f)) throw new Error("Amount must be a number like 0.5");
+  return BigInt(w || "0") * 10n ** 18n + BigInt((f + "0".repeat(18)).slice(0, 18) || "0");
+};
+
+// A reserve ratio is entered as basis points, "10500", or as a percentage, "105.00%".
+function ratioBps(v) {
+  const t = String(v ?? "").trim().replace(/,/g, "");
+  if (/^\d+(\.\d+)?%$/.test(t)) {
+    const pct = Number(t.slice(0, -1));
+    return BigInt(Math.round(pct * 100));
+  }
+  if (!/^\d+$/.test(t)) throw new Error('Ratio must look like 10500 or "105.00%"');
+  return BigInt(t);
+}
+
+function msg(el, text, cls = "") {
+  if (!el) return;
+  el.textContent = text;
+  el.className = "msg" + (cls ? " " + cls : "");
+}
+function walletErr(e) {
+  const c = e && (e.code !== undefined ? e.code : (e.cause && e.cause.code));
+  if (c === 4001) return "You rejected the request in your wallet.";
+  if (c === -32002) return "A wallet request is already pending — open your wallet and confirm it.";
+  if (c === 4902) return "Studionet is not configured in your wallet.";
+  if (c === 4100) return "Wallet says this account/method is not authorised (4100). Reconnect, and make sure the active account holds GEN.";
+  const base = (e && (e.message || String(e))) || "Unknown wallet error";
+  return (c !== undefined && c !== null ? `[${c}] ` : "") + base;
+}
+
+// ------------------------------------------------------------------------ wallet
+$("connectBtn").addEventListener("click", async () => {
+  // Pin whichever EIP-1193 wallet is present. With several extensions installed the SDK's own
+  // `config.provider || window.ethereum` fallback can land on the wrong one and answer 4100.
+  const cands = [
+    { name: "OKX Wallet", p: window.okxwallet },
+    { name: "MetaMask", p: window.ethereum && window.ethereum.isMetaMask ? window.ethereum : null },
+    { name: "Rabby", p: window.ethereum && window.ethereum.isRabby ? window.ethereum : null },
+    { name: "injected", p: window.ethereum },
+  ];
+  const found = cands.find((c) => c.p && c.p.request);
+  if (!found) {
+    msg($("detailMsg"), "No wallet found. Install OKX Wallet or MetaMask, and open this page over https — wallets do not inject into file:// pages.", "err");
+    return;
+  }
+  const prov = found.p;
+  $("connectBtn").textContent = "Connecting…";
+  try {
+    const a = await prov.request({ method: "eth_requestAccounts" });
+    if (!a || !a.length) throw new Error("Your wallet returned no account.");
+    myAddr = a[0];
+
+    try {
+      await prov.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xf22f" }] });
+    } catch (e) {
+      if (e && e.code === 4902) {
+        await prov.request({ method: "wallet_addEthereumChain", params: [{
+          chainId: "0xf22f", chainName: "GenLayer Studio",
+          nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
+          rpcUrls: ["https://studio.genlayer.com/api"],
+          blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
+        }] });
+      } else { throw e; }
+    }
+    const cid = await prov.request({ method: "eth_chainId" });
+    if (cid !== "0xf22f") {
+      msg($("detailMsg"), `Wallet is on chain ${parseInt(cid, 16)} but this app needs Studionet (61999). Switch it in the wallet and connect again.`, "err");
+      $("connectBtn").textContent = "Connect wallet";
+      return;
+    }
+
+    const forced = { request: (args) => prov.request(args) };
+    if (prov.on) forced.on = (...x) => prov.on(...x);
+    if (prov.removeListener) forced.removeListener = (...x) => prov.removeListener(...x);
+
+    usingLocalKey = false;
+    writeClient = createClient({ chain: studionet, provider: forced });
+
+    $("netLabel").textContent = short(myAddr);
+    $("netDot").classList.add("on");
+    $("connectBtn").textContent = "Connected";
+
+    let bal = "";
+    try {
+      const raw = await readClient.getBalance({ address: myAddr });
+      if (raw !== null && raw !== undefined) bal = " · " + (Number(raw) / 1e18).toFixed(4) + " GEN";
+    } catch (e) { /* ignore */ }
+    msg($("detailMsg"), found.name + " connected on Studionet · " + short(myAddr) + bal, "ok");
+
+    if (prov.on) {
+      prov.on("accountsChanged", (accs) => {
+        myAddr = accs && accs.length ? accs[0] : null;
+        writeClient = null;
+        $("connectBtn").textContent = myAddr ? "Connected" : "Connect wallet";
+        $("netLabel").textContent = myAddr ? short(myAddr) : "not connected";
+        if (!myAddr) $("netDot").classList.remove("on");
+      });
+      prov.on("chainChanged", () => window.location.reload());
+    }
+    await loadAll();
+  } catch (e) {
+    $("connectBtn").textContent = "Connect wallet";
+    msg($("detailMsg"), "Connect failed: " + walletErr(e), "err");
+  }
+});
+
+// ------------------------------------------------------------------------ writes
+async function waitFinal(hash, el, label) {
+  for (let i = 0; i < 80; i++) {
+    await new Promise((r) => setTimeout(r, 15000));
+    let tx = null;
+    try { tx = await readClient.getTransaction({ hash }); } catch (e) { continue; }
+    if (!tx) continue;
+    const st = String(tx.statusName || tx.status || "");
+    if (st === "FINALIZED" || st === "ACCEPTED") {
+      const res = String(tx.txExecutionResultName || "");
+      if (res === "FINISHED_WITH_RETURN") {
+        msg(el, `${label} confirmed · ${short(hash)}`, "ok");
+        await loadAll();
+        return true;
+      }
+      msg(el, `${label} executed but returned ${res || "an error"} · ${short(hash)} — the contract refused it.`, "err");
+      return false;
+    }
+    if (st === "UNDETERMINED" || st === "LEADER_TIMEOUT") {
+      msg(el, `${label} could not reach consensus. It may still land — check the explorer. ${short(hash)}`, "err");
+      return false;
+    }
+  }
+  msg(el, `${label} is taking long. Hash ${short(hash)} — check the explorer before retrying.`, "info");
+  return false;
+}
+
+async function write(fn, args, el, label, value = 0n) {
+  if (!writeClient) return msg(el, "Connect your wallet first.", "err");
+  try {
+    msg(el, `${label} → confirm in your wallet…`, "info");
+    const call = { address: ADDR, functionName: fn, args, value };
+    if (!usingLocalKey && myAddr) call.account = { address: myAddr, type: "json-rpc" };
+    const hash = await writeClient.writeContract(call);
+    msg(el, `${label} submitted (${short(hash)}) — waiting for finalization…`, "info");
+    await waitFinal(hash, el, label);
+  } catch (e) {
+    msg(el, `${label} failed: ` + walletErr(e).slice(0, 240), "err");
+  }
+}
+
+// ------------------------------------------------------------------------ reads
+async function loadAll() {
+  try {
+    const counts = await readClient.readContract({ address: ADDR, functionName: "get_counts", args: [] });
+    const n = Number(counts.challenge_count);
+    challenges = [];
+    for (let i = 1; i <= n; i++) {
+      try {
+        challenges.push(await readClient.readContract({ address: ADDR, functionName: "get_challenge", args: [BigInt(i)] }));
+      } catch (e) { /* skip */ }
+    }
+    renderList();
+    $("countLabel").textContent = `· ${n} opened · ${Number(counts.report_count)} reports`;
+  } catch (e) {
+    $("countLabel").textContent = "· read failed";
+  }
+}
+
+function renderList() {
+  const el = $("list");
+  if (!challenges.length) {
+    el.innerHTML = '<div class="item" style="cursor:default;color:var(--dim)">No challenges yet.</div>';
+    return;
+  }
+  el.innerHTML = challenges.map((c) => {
+    const st = Number(c.state);
+    const settled = c.stake_settled ? " · SETTLED" : "";
+    return `
+    <div class="item${selected === c.challenge_id ? " sel" : ""}" data-id="${esc(c.challenge_id)}">
+      <div style="min-width:0">
+        <div style="font-size:13.5px">#${esc(c.challenge_id)} · ${esc(c.custodian_id)} — report ${esc(c.report_id)}</div>
+        <div style="font-size:11.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.note)}</div>
+      </div>
+      <span class="badge b${st}">${CSTATE[st] ?? st}${settled}</span>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".item[data-id]").forEach((n) => {
+    n.addEventListener("click", () => openChallenge(n.dataset.id));
+  });
+}
+
+async function openChallenge(id) {
+  selected = String(id);
+  renderList();
+  const el = $("detail");
+  el.className = "kv";
+  try {
+    const c = await readClient.readContract({ address: ADDR, functionName: "get_challenge", args: [BigInt(id)] });
+    const st = Number(c.state);
+    el.innerHTML = `
+      <b>challenge</b><span>#${esc(c.challenge_id)} on report #${esc(c.report_id)} · ${esc(c.custodian_id)}</span>
+      <b>state</b><span>${CSTATE[st] ?? st}${c.stake_settled ? " · stake settled" : ""}</span>
+      <b>challenger</b><span>${esc(short(c.challenger))}</span>
+      <b>stake</b><span>${eth(c.stake)} GEN</span>
+      <b>bounty</b><span>${eth(c.bounty)} GEN</span>
+      <b>stated APY</b><span>${esc(c.attested_ratio)} bps</span>
+      <b>score</b><span>${esc(c.score)}</span>
+      <b>confidence</b><span>${esc(c.confidence) || "—"}</span>
+      <b>reason</b><span>${esc(c.verdict_reason) || "—"}</span>`;
+    const open = st === 0;
+    $("judgeBtn").disabled = !open;
+    $("settleBtn").disabled = open || c.stake_settled;
+    $("reclaimBtn").disabled = !open && st !== 5;
+    $("cReport").value = c.report_id;
+    loadCustodian(c.custodian_id);
+  } catch (e) {
+    el.className = "hint";
+    el.textContent = "Could not read challenge " + id + ": " + walletErr(e);
+  }
+}
+
+async function loadCustodian(vid) {
+  const id = (vid || $("vId").value || "").trim();
+  if (!id) return;
+  try {
+    const v = await readClient.readContract({ address: ADDR, functionName: "get_custodian", args: [id] });
+    $("vInfo").innerHTML = `
+      <b>custodian</b><span>${esc(v.custodian_id)}</span>
+      <b>operator</b><span>${esc(short(v.operator))}</span>
+      <b>bond</b><span>${eth(v.bond)} GEN</span>
+      <b>committed</b><span>${eth(v.committed)} GEN</span>
+      <b>withdrawable</b><span>${eth(v.withdrawable)} GEN</span>
+      <b>tolerance</b><span>${esc(v.tolerance_bps)} bps</span>
+      <b>reports</b><span>${esc(v.report_count)}</span>`;
+  } catch (e) {
+    $("vInfo").innerHTML = `<b>custodian</b><span>${esc(id)} is not registered</span>`;
+  }
+}
+
+// ------------------------------------------------------------------------ handlers
+$("refreshBtn").addEventListener("click", loadAll);
+$("vLoadBtn").addEventListener("click", () => loadCustodian());
+$("openBtn").addEventListener("click", () => openChallenge($("openId").value.trim() || "1"));
+
+$("regBtn").addEventListener("click", () =>
+  write("register_custodian", [$("rId").value.trim(), BigInt($("rTol").value.trim() || "100")], $("regMsg"), "register_custodian"));
+
+$("fundBtn").addEventListener("click", () => {
+  let v; try { v = gen($("fAmt").value); } catch (e) { return msg($("fMsg"), e.message, "err"); }
+  write("fund_bond", [$("fId").value.trim()], $("fMsg"), "fund_bond", v);
+});
+
+$("recBtn").addEventListener("click", () =>
+  write("record_report", [
+    $("pCustodian").value.trim(), $("pPeriod").value.trim(),
+    ratioBps($("pApy").value),
+    $("pUrl").value.trim(), $("pSdig").value.trim(), $("pMdig").value.trim(),
+  ], $("pMsg"), "record_report"));
+
+$("challengeBtn").addEventListener("click", () => {
+  let s, b; try { s = gen($("cStake").value); b = gen($("cBounty").value); } catch (e) { return msg($("cMsg"), e.message, "err"); }
+  const note = $("cNote").value.trim();
+  // Pre-validate every rejectable condition here. A reverted payable call on this chain keeps
+  // the attached GEN inside the contract, so the user must never reach a revert with value.
+  if (!myAddr) return msg($("cMsg"), "Connect your wallet first — the checker needs to know who you are.", "err");
+  const MIN_STAKE = 10n ** 16n, MAX_STAKE = 10n * 10n ** 18n;
+  const MIN_BOUNTY = 10n ** 15n, MAX_BOUNTY = 100n * 10n ** 18n;
+  if (note.length < 24) return msg($("cMsg"), "Give a reason of 24+ characters.", "err");
+  if (s < MIN_STAKE) return msg($("cMsg"), "Stake must be at least 0.01 GEN.", "err");
+  if (s > MAX_STAKE) return msg($("cMsg"), "Stake must be at most 10 GEN.", "err");
+  if (b < MIN_BOUNTY) return msg($("cMsg"), "Bounty must be at least 0.001 GEN.", "err");
+  if (b > MAX_BOUNTY) return msg($("cMsg"), "Bounty must be at most 100 GEN.", "err");
+  if (b > s * 100n) return msg($("cMsg"), "Bounty may not exceed 100x your stake.", "err");
+  (async () => {
+    const rid = $("cReport").value.trim() || "0";
+    try {
+      const rep = await readClient.readContract({ address: ADDR, functionName: "get_report", args: [BigInt(rid)] });
+      if (rep.challenged) return msg($("cMsg"), "That report has already been challenged.", "err");
+      if (String(rep.operator).toLowerCase() === String(myAddr).toLowerCase())
+        return msg($("cMsg"), "You are the operator of this custodian — you cannot challenge your own report.", "err");
+      const v = await readClient.readContract({ address: ADDR, functionName: "get_custodian", args: [rep.custodian_id] });
+      // The bounty is reserved the moment the challenge opens, so it must fit inside
+      // the part of the bond that is not already promised to another open challenge.
+      if (BigInt(v.withdrawable) < b)
+        return msg($("cMsg"), `This custodian can only back ${eth(v.withdrawable)} GEN in new bounties right now — the rest is reserved for open challenges. Lower the bounty.`, "err");
+    } catch (e) {
+      return msg($("cMsg"), "Could not read that claim: " + walletErr(e).slice(0, 160), "err");
+    }
+    write("challenge_report", [BigInt(rid), note, b], $("cMsg"), "challenge_report", s);
+  })();
+});
+
+$("judgeBtn").addEventListener("click", () => {
+  if (!selected) return msg($("detailMsg"), "Pick a challenge first.", "err");
+  write("judge_challenge", [BigInt(selected)], $("detailMsg"), "judge_challenge");
+});
+$("settleBtn").addEventListener("click", () => {
+  if (!selected) return msg($("detailMsg"), "Pick a challenge first.", "err");
+  write("settle_challenge", [BigInt(selected)], $("detailMsg"), "settle_challenge");
+});
+$("reclaimBtn").addEventListener("click", () => {
+  if (!selected) return msg($("detailMsg"), "Pick a challenge first.", "err");
+  write("reclaim_stake", [BigInt(selected)], $("detailMsg"), "reclaim_stake");
+});
+$("wdBtn").addEventListener("click", () => {
+  let a; try { a = gen($("wAmt").value); } catch (e) { return msg($("wMsg"), e.message, "err"); }
+  const to = ($("wTo").value.trim() || myAddr || "");
+  if (!to.startsWith("0x")) return msg($("wMsg"), "Connect your wallet or give a 0x address to send to.", "err");
+  write("withdraw_bond", [$("wId").value.trim(), a, to], $("wMsg"), "withdraw_bond");
+});
+
+// ------------------------------------------------------------------------ boot
+$("explorerLink").href = EXPLORER;
+$("addrLabel").textContent = short(ADDR);
+loadAll();
+</script>
+</body>
+</html>
